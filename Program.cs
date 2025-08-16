@@ -51,7 +51,11 @@ builder.Services.AddAuthentication(option =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateLifetime = true,
-        IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(keyJwt))
+        IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(keyJwt)),
+        ValidateIssuer= false,
+        ValidateAudience = false,
+        ClockSkew = TimeSpan.Zero, // Reduz o tempo de tolerância para expiração do token
+        RequireExpirationTime = true // Exige que o token tenha um tempo de expiração
     };
 });
 
@@ -61,7 +65,32 @@ builder.Services.AddScoped<IAdministradorServico, AdministradorServico>();
 builder.Services.AddScoped<IVeiculoServico, VeiculoServico>();
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Insira o token JWT desta forma: Bearer {seu token}"
+
+    });
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement{
+        {
+          new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+          {
+            Reference = new Microsoft.OpenApi.Models.OpenApiReference{
+                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                Id = "Bearer"
+            }
+          },
+          new string[] {}  
+         }
+
+    });
+});
 
 builder.Services.AddDbContext<DbContexto>( options => {
     options.UseMySql(
@@ -80,7 +109,7 @@ var swaggerAtivo = builder.Configuration.GetValue<bool>("Swagger:Enabled");
 app.MapGet("/", () =>
 {
     return Results.Json(new Home(swaggerAtivo));
-}).WithTags("Home");
+}).AllowAnonymous().WithTags("Home");
 #endregion
 
 #region Administradores
@@ -126,7 +155,7 @@ string GerarTokenJwt(Administrador administrador, string keyJwt)
         return Results.Unauthorized();
     }
 
-}).WithTags("Administradores");
+}).AllowAnonymous().WithTags("Administradores");
 
 
 // 🛠️ Rota GET para listar todos os administradores, com paginação opcional

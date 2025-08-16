@@ -26,11 +26,10 @@ if (string.IsNullOrWhiteSpace(keyJwt))
 
 var tamanhoChave = System.Text.Encoding.UTF8.GetByteCount(keyJwt);
 
-Console.WriteLine(new string('*', 72));
-Console.WriteLine($"Chave JWT: {keyJwt}");
-Console.WriteLine($".........: {tamanhoChave}");
-
-Console.WriteLine(new string('*', 72));
+Console.WriteLine(new string('*', 100));
+Console.WriteLine($"Chave JWT.......................: {keyJwt}");
+Console.WriteLine($"................................: {tamanhoChave}");
+Console.WriteLine(new string('*', 100));
 
 
 
@@ -86,16 +85,25 @@ builder.Services.AddSwaggerGen(options =>
                 Id = "Bearer"
             }
           },
-          new string[] {}  
+          new string[] {}
          }
 
     });
 });
 
+// Configuração do DbContext para usar MySQL
+var conexaoMySql = builder.Configuration.GetConnectionString("MySql");
+if (string.IsNullOrWhiteSpace(conexaoMySql))
+{
+    throw new ArgumentException("A string de conexão com o MySQL não foi configurada leia o README.md");
+}
+
+Console.WriteLine($"string de conexão com o MySQL...: {conexaoMySql}");
+Console.WriteLine(new string('*', 100));
 builder.Services.AddDbContext<DbContexto>( options => {
     options.UseMySql(
-        builder.Configuration.GetConnectionString("MySql"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("MySql"))
+        conexaoMySql,
+        ServerVersion.AutoDetect(conexaoMySql)
     );
 });
 

@@ -45,7 +45,7 @@ if (tamanhoChave < 32)
 builder.Services.AddAuthentication(option =>
 {
     option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    option.DefaultChallengeScheme =JwtBearerDefaults.AuthenticationScheme;
+    option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 }).AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -122,7 +122,8 @@ string GerarTokenJwt(Administrador administrador, string keyJwt)
     var claims = new List<Claim>()
     {
         new Claim("Email", administrador.Email),
-        new Claim("Perfil", administrador.Perfil)
+        new Claim("Perfil", administrador.Perfil),
+        new Claim(ClaimTypes.Role, administrador.Perfil)
     };
 
     var token = new JwtSecurityToken(
@@ -170,13 +171,16 @@ app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico a
             Id = adm.Id,
             Email = adm.Email,
             Perfil = adm.Perfil
-        } );
+        });
     }
-  
-        return Results.Ok(adms);
- 
 
-}).RequireAuthorization().WithTags("Administradores").WithDescription("Listar todos os Administradores por Paginação.");
+    return Results.Ok(adms);
+
+
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores" })
+  .WithTags("Administradores")
+  .WithDescription("Listar todos os Administradores por Paginação.");
 
 
 
@@ -184,11 +188,11 @@ app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico a
 app.MapPost("/administradores", ([FromBody] AdministradorDTO administradorDTO, IAdministradorServico administradorServico) =>
 {
 
-     var validacao = new ErrosDeValidacao
+    var validacao = new ErrosDeValidacao
     {
         Mensagens = new List<string>()
-     };
-  
+    };
+
 
     if (string.IsNullOrWhiteSpace(administradorDTO.Email))
     {
@@ -218,13 +222,15 @@ app.MapPost("/administradores", ([FromBody] AdministradorDTO administradorDTO, I
     };
     administradorServico.Incluir(administrador);
     return Results.Created($"/administrador/{administrador.Id}", new AdministradorModelView
-        {
-            Id = administrador.Id,
-            Email = administrador.Email,
-            Perfil = administrador.Perfil
-        });
+    {
+        Id = administrador.Id,
+        Email = administrador.Email,
+        Perfil = administrador.Perfil
+    });
 
-}).RequireAuthorization().WithTags("Administradores").WithDescription("Incluir novo administrador.");
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores" })
+  .WithTags("Administradores").WithDescription("Incluir novo administrador.");
 
 // 🛠️ Rota GET para buscar um administrador por ID
 app.MapGet("/administradores/{id}", ([FromRoute] int id, IAdministradorServico administradorServico) =>
@@ -243,7 +249,9 @@ app.MapGet("/administradores/{id}", ([FromRoute] int id, IAdministradorServico a
         });
     }
     
-}).RequireAuthorization().WithTags("Administradores").WithDescription("Busca um administrador pelo ID.");
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores" })
+  .WithTags("Administradores").WithDescription("Busca um administrador pelo ID.");
 
 
 #endregion
@@ -303,14 +311,19 @@ app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veic
     };
     veiculoServico.Incluir(veiculo);
     return Results.Created($"/veiculo/{veiculo.Id}", veiculo);
-}).RequireAuthorization().WithTags("Veículos").WithDescription("Incluir Novo Veículo.");
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores,Editor"})  
+  .WithTags("Veículos").WithDescription("Incluir Novo Veículo.");
 
 // 🛠️ Rota GET para listar todos os veículos, com paginação opcional
 app.MapGet("/veiculos", ([FromQuery] int? pagina, IVeiculoServico veiculoServico) =>
 {
     var veiculos = veiculoServico.Todos(pagina ?? 1);
     return Results.Ok(veiculos);
-}).RequireAuthorization().WithTags("Veículos").WithDescription("Listar Todos os Veículos por Paginação.");
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores,Editor" })  
+  .WithTags("Veículos")
+  .WithDescription("Listar Todos os Veículos por Paginação.");
 
 
 // 🛠️ Rota GET para buscar um veículo por ID
@@ -325,7 +338,9 @@ app.MapGet("/veiculo/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico)
         return Results.Ok(veiculo);
     }
     
-}).RequireAuthorization().WithTags("Veículos").WithDescription("Busca um Veículo pelo ID.");
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores,Editor" })  
+  .WithTags("Veículos").WithDescription("Busca um Veículo pelo ID.");
 
 
 
@@ -343,7 +358,9 @@ app.MapPut("/veiculo/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculo
     if (veiculo == null)
     {
         return Results.NotFound();
-    } else {
+    }
+    else
+    {
         veiculo.Nome = veiculoDTO.Nome;
         veiculo.Marca = veiculoDTO.Marca;
         veiculo.Ano = veiculoDTO.Ano;
@@ -352,8 +369,11 @@ app.MapPut("/veiculo/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculo
 
         return Results.Ok(veiculo);
     }
-    
-}).RequireAuthorization().WithTags("Veículos").WithDescription("Atualiza um Veículo pelo ID.");
+
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores" })  
+  .WithTags("Veículos")
+  .WithDescription("Atualiza um Veículo pelo ID.");
 
 // 🛠️ Rota DELETE para excluir um veículo pelo ID
 app.MapDelete("/veiculo/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico) =>
@@ -368,7 +388,9 @@ app.MapDelete("/veiculo/{id}", ([FromRoute] int id, IVeiculoServico veiculoServi
         return Results.NoContent();
     }
     
-}).RequireAuthorization().WithTags("Veículos").WithDescription("Excluir um Veículo pelo ID.");
+}).RequireAuthorization()
+  .RequireAuthorization(new Microsoft.AspNetCore.Authorization.AuthorizeAttribute { Roles = "Administradores" })  
+  .WithTags("Veículos").WithDescription("Excluir um Veículo pelo ID.");
 
 
 #endregion

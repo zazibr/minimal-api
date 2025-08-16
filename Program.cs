@@ -7,11 +7,55 @@ using MinimalApi.Dominio.Servicos;
 using MinimalApi.Dominio.ModelViews;
 using MinimalApi.Dominio.Entidades;
 using MinimalApi.Dominio.Emums;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.JsonWebTokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 
 
 #region Builder
 var builder = WebApplication.CreateBuilder(args);
+
+var keyJwt = builder.Configuration.GetValue<string>("Jwt:Key");
+if (string.IsNullOrWhiteSpace(keyJwt))
+{
+    throw new ArgumentException("A chave JWT não foi configurada no appsettings.json");
+}
+
+var tamanhoChave = System.Text.Encoding.UTF8.GetByteCount(keyJwt);
+
+Console.WriteLine(new string('*', 72));
+Console.WriteLine($"Chave JWT: {keyJwt}");
+Console.WriteLine($".........: {tamanhoChave}");
+
+Console.WriteLine(new string('*', 72));
+
+
+
+if (tamanhoChave < 32)
+{
+    Console.WriteLine("⚠️ Aviso: A chave JWT deve ter pelo menos 32 caracteres para garantir a segurança.");
+}
+
+
+
+// Configuração do serviço de autenticação JWT
+builder.Services.AddAuthentication(option =>
+{
+    option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    option.DefaultChallengeScheme =JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateLifetime = true,
+        IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(keyJwt))
+    };
+});
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IAdministradorServico, AdministradorServico>();
 builder.Services.AddScoped<IVeiculoServico, VeiculoServico>();
@@ -21,8 +65,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<DbContexto>( options => {
     options.UseMySql(
-        builder.Configuration.GetConnectionString("mysql"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("mysql"))
+        builder.Configuration.GetConnectionString("MySql"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("MySql"))
     );
 });
 
@@ -40,12 +84,42 @@ app.MapGet("/", () =>
 #endregion
 
 #region Administradores
-// 🔐 Rota POST para login, usando DTO para receber os dados
-app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministradorServico administradorServico) =>
+
+string GerarTokenJwt(Administrador administrador, string keyJwt)
 {
-    if (administradorServico.Login(loginDTO) != null)
+    var securityKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(keyJwt));
+    var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+    var claims = new List<Claim>()
     {
-        return Results.Ok("Login bem-sucedido!");
+        new Claim("Email", administrador.Email),
+        new Claim("Perfil", administrador.Perfil)
+    };
+
+    var token = new JwtSecurityToken(
+        claims: claims,
+        expires: DateTime.Now.AddDays(1),
+        signingCredentials: credentials
+    );
+
+    return new JwtSecurityTokenHandler().WriteToken(token);
+
+        
+}   
+
+// 🔐 Rota POST para login, usando DTO para receber os dados
+    app.MapPost("/administradores/login", ([FromBody] LoginDTO loginDTO, IAdministradorServico administradorServico) =>
+{
+    var adm = administradorServico.Login(loginDTO);
+    if (adm != null)
+    {
+        string token = GerarTokenJwt(adm, keyJwt);
+        return Results.Ok(new AdministradoLogado
+        {
+            Email = adm.Email,
+            Perfil = adm.Perfil,
+            Token = token
+         });
     }
     else
     {
@@ -73,7 +147,7 @@ app.MapGet("/administradores", ([FromQuery] int? pagina, IAdministradorServico a
         return Results.Ok(adms);
  
 
-}).WithTags("Administradores").WithDescription("Listar todos os Administradores por Paginação.");
+}).RequireAuthorization().WithTags("Administradores").WithDescription("Listar todos os Administradores por Paginação.");
 
 
 
@@ -121,7 +195,7 @@ app.MapPost("/administradores", ([FromBody] AdministradorDTO administradorDTO, I
             Perfil = administrador.Perfil
         });
 
-}).WithTags("Administradores").WithDescription("Incluir novo administrador.");
+}).RequireAuthorization().WithTags("Administradores").WithDescription("Incluir novo administrador.");
 
 // 🛠️ Rota GET para buscar um administrador por ID
 app.MapGet("/administradores/{id}", ([FromRoute] int id, IAdministradorServico administradorServico) =>
@@ -140,7 +214,7 @@ app.MapGet("/administradores/{id}", ([FromRoute] int id, IAdministradorServico a
         });
     }
     
-}).WithTags("Administradores").WithDescription("Busca um administrador pelo ID.");
+}).RequireAuthorization().WithTags("Administradores").WithDescription("Busca um administrador pelo ID.");
 
 
 #endregion
@@ -200,14 +274,14 @@ app.MapPost("/veiculos", ([FromBody] VeiculoDTO veiculoDTO, IVeiculoServico veic
     };
     veiculoServico.Incluir(veiculo);
     return Results.Created($"/veiculo/{veiculo.Id}", veiculo);
-}).WithTags("Veículos").WithDescription("Incluir Novo Veículo.");
+}).RequireAuthorization().WithTags("Veículos").WithDescription("Incluir Novo Veículo.");
 
 // 🛠️ Rota GET para listar todos os veículos, com paginação opcional
 app.MapGet("/veiculos", ([FromQuery] int? pagina, IVeiculoServico veiculoServico) =>
 {
     var veiculos = veiculoServico.Todos(pagina ?? 1);
     return Results.Ok(veiculos);
-}).WithTags("Veículos").WithDescription("Listar Todos os Veículos por Paginação.");
+}).RequireAuthorization().WithTags("Veículos").WithDescription("Listar Todos os Veículos por Paginação.");
 
 
 // 🛠️ Rota GET para buscar um veículo por ID
@@ -222,7 +296,7 @@ app.MapGet("/veiculo/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico)
         return Results.Ok(veiculo);
     }
     
-}).WithTags("Veículos").WithDescription("Busca um Veículo pelo ID.");
+}).RequireAuthorization().WithTags("Veículos").WithDescription("Busca um Veículo pelo ID.");
 
 
 
@@ -250,12 +324,9 @@ app.MapPut("/veiculo/{id}", ([FromRoute] int id, VeiculoDTO veiculoDTO, IVeiculo
         return Results.Ok(veiculo);
     }
     
-}).WithTags("Veículos").WithDescription("Atualiza um Veículo pelo ID.");
+}).RequireAuthorization().WithTags("Veículos").WithDescription("Atualiza um Veículo pelo ID.");
 
-
-
-
-
+// 🛠️ Rota DELETE para excluir um veículo pelo ID
 app.MapDelete("/veiculo/{id}", ([FromRoute] int id, IVeiculoServico veiculoServico) =>
 {
     var veiculo = veiculoServico.BuscarPorId(id);
@@ -268,7 +339,7 @@ app.MapDelete("/veiculo/{id}", ([FromRoute] int id, IVeiculoServico veiculoServi
         return Results.NoContent();
     }
     
-}).WithTags("Veículos").WithDescription("Excluir um Veículo pelo ID.");
+}).RequireAuthorization().WithTags("Veículos").WithDescription("Excluir um Veículo pelo ID.");
 
 
 #endregion
@@ -280,6 +351,9 @@ if (swaggerAtivo)
     app.UseSwagger(); // 📝 Habilita o Swagger para documentação da API
     app.UseSwaggerUI(); // 🖥️ Interface do Swagger para testes interativos
 }
+
+app.UseAuthentication(); // 🔐 Habilita a autenticação JWT
+app.UseAuthorization(); // ✅ Habilita a autorização
 
 app.Run(); // 🚀 Inicia a aplicação
 #endregion

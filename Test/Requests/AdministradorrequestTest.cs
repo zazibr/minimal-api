@@ -31,9 +31,7 @@ public sealed class AdministradorRequestTest
             Senha = "654321"
         };
 
-        //var content = new StringContent(JsonSerializer.Serialize(loginDTO), Encoding.UTF8, "Application/json");
         var content = new StringContent(JsonConvert.SerializeObject(loginDTO), Encoding.UTF8, "application/json");
-
 
         // Act
         var response = await Setup.client.PostAsync("/administradores/login", content);
@@ -41,25 +39,11 @@ public sealed class AdministradorRequestTest
         // Assert
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
 
-        // var result = await response.Content.ReadAsStringAsync();
-        // var admLogado = JsonSerializer.Deserialize<AdministradoLogado>(result, new JsonSerializerOptions
-        // {
-        //     PropertyNameCaseInsensitive = true
-        // });
-
-        // // ✅ Substituir por Newtonsoft.Json para evitar problemas com PipeWriter
-        // var admLogado = Newtonsoft.Json.JsonConvert.DeserializeObject<AdministradoLogado>(result);
-
-        // Assert.IsNotNull(admLogado?.Email ?? "");
-        // Assert.IsNotNull(admLogado?.Perfil ?? "");
-        // Assert.IsNotNull(admLogado?.Token ?? "");
-        
         var result = await response.Content.ReadAsStringAsync();
         var admLogado = JsonConvert.DeserializeObject<AdministradoLogado>(result);
 
         Assert.IsFalse(string.IsNullOrEmpty(admLogado?.Email));
         Assert.IsFalse(string.IsNullOrEmpty(admLogado?.Perfil));
-        Assert.IsFalse(string.IsNullOrEmpty(admLogado?.Token));        
-
+        Assert.IsFalse(string.IsNullOrEmpty(admLogado?.Token));
     }
 }

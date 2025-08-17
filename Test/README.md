@@ -13,7 +13,9 @@ TESTE do Desafio de Projeto - Trabalhando com ASP.NET Minimals  APIs
 
 use o seguinte comando para informar os dados do banco de dados
 
+*** inicialmente rodar antes de executar **
 dotnet user-secrets --id minimal-api-123456 set "ConnectionStrings:MySql" "Server=localhost;Database=minimal_apitest;Uid=root;Pwd=_SUA_SENHA_;"
+dotnet run
 
 substituindo _SUA_SENHA_ pela senha do banco MySql
 

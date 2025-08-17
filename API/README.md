@@ -1,7 +1,14 @@
 # minimal-api
 Desafio de Projeto - Trabalhando com ASP.NET Minimals  APIs
 
-usee o seguinte comando para informar os dados do banco de dados
+- criar o banco de dados no MySQL
+-- create database minimal_api;
+
+- realizar backup para teste
+-- mysqldump --routines --triggers --single-transaction --quick --hex-blob --default-character-set=utf8mb4 -uroot -p_SUA_SENHA_ minimal_api > minimal_api.dump.sql
+
+
+use o seguinte comando para informar os dados do banco de dados
 
 dotnet user-secrets --id minimal-api-123456 set "ConnectionStrings:MySql" "Server=localhost;Database=minimal_api;Uid=root;Pwd=_SUA_SENHA_;"
 

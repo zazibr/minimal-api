@@ -31,10 +31,11 @@ public class VeiculoServico : IVeiculoServico
         return _contexto.Veiculos.Where(x => x.Id == id).FirstOrDefault();
     }
 
-    public void Incluir(Veiculo veiculo)
+    public Veiculo Incluir(Veiculo veiculo)
     {
         _contexto.Veiculos.Add(veiculo);
         _contexto.SaveChanges();
+        return veiculo;
     }
 
     public List<Veiculo> Todos(int? pagina = 1, string? nome = null, string? marca = null)
